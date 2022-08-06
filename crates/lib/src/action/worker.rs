@@ -77,37 +77,39 @@ pub async fn worker(
 
 					if priority == Priority::Urgent {
 						trace!("urgent event, by-passing filters");
-					} else if event.is_empty() {
-						trace!("empty event, by-passing filters");
 					} else {
-						let filtered = working.borrow().filterer.check_event(&event, priority);
-						match filtered {
-							Err(err) => {
-								trace!(%err, "filter errored on event");
-								errors.send(err).await?;
-								continue;
-							}
-							Ok(false) => {
-								trace!("filter rejected event");
-								continue;
-							}
-							Ok(true) => {
-								trace!("filter passed event");
+						if event.is_empty() {
+							trace!("empty event, by-passing filters");
+						} else {
+							let filtered = working.borrow().filterer.check_event(&event, priority);
+							match filtered {
+								Err(err) => {
+									trace!(%err, "filter errored on event");
+									errors.send(err).await?;
+									continue;
+								}
+								Ok(false) => {
+									trace!("filter rejected event");
+									continue;
+								}
+								Ok(true) => {
+									trace!("filter passed event");
+								}
 							}
 						}
-					}
 
-					if set.is_empty() {
-						trace!("event is the first, resetting throttle window");
-						last = Instant::now();
-					}
+						if set.is_empty() {
+							trace!("event is the first, resetting throttle window");
+							last = Instant::now();
+						}
 
-					set.push(event);
+						set.push(event);
 
-					let elapsed = last.elapsed();
-					if elapsed < working.borrow().throttle {
-						trace!(?elapsed, "still within throttle window, cycling");
-						continue;
+						let elapsed = last.elapsed();
+						if elapsed < working.borrow().throttle {
+							trace!(?elapsed, "still within throttle window, cycling");
+							continue;
+						}
 					}
 				}
 			}
